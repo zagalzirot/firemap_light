@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>(nodo20) FIREMAP | Visualizador de Incendios | Últimas 24 horas</title>
+    
+    <style>
+      
+      body, html 
+      { height: 100%;
+        padding: 0;
+        margin: 0;
+        font-family:"Avenir", Arial, sans-serif;
+        font-weight: normal;
+        font-size: 14px; }
+      
+      h1  
+      { position: relative;
+        background: white; 
+        padding: 10px; 
+        font-size: 22px;
+        fill: #ff0000; }
+        
+       h2  
+      { position: relative;
+        background: rgba(208, 208, 208, 0.4); 
+        padding: 10px; 
+        font-size: 14px; }
+      
+      #map { height:100%; }
+      .leaflet-container {
+        background: rgba(0,0,0,.8) !important;
+      }
+      .fill-gray, .fill-grey {background: rgba(0,0,0,.4);}
+      .pin-top {top: 0;right: 0;left: 0;position: absolute;}
+      .pad1 {padding: 10px 10px 10px 50px;}
+    </style>
+      
+    <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
+    <script src="http://code.jquery.com/jquery-2.1.0.min.js"></script>
+    <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+    <script src="js/heatmap.min.js"></script>
+    <script src="js/leaflet-heatmap.js"></script>
+  </head>
+ 
+  <body>
+
+    <div id="map"></div>
+    <div id='stationsNum' class="number">Number of gas stations: 0<div>
+    <div class="pin-top fill-gray pad1">
+        
+        <h1><img src="img/iso.png" width="100px" height="100px">
+        &nbsp;<strong>FIREMAP</strong>&nbsp; | &nbsp;Visualizador de Incendios</h1>
+        
+        <h2>Actualizado el 02-12-2018 &nbsp;|&nbsp; Filtrar por índice de luminosidad
+        <input type = "number" id = "price" max = "350" min = "300" class="clean short small-input" value="300" step="5">
+        <p id="numStations"><p>
+        </h2>
+        
+
+    </div>
+
+    <script>
+      window.onload = function() {
+        var baseLayer = L.tileLayer("https://api.mapbox.com/styles/v1/mapbox/light-v9/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiemF1bHJhZ2FsIiwiYSI6ImNqbTQ0YmlhMzAwaGMzcG50YmFub2gzbmsifQ.ZYIb6n5wUdY9sW5ty_jiyg",
+                   { attribution: 'Data: NASA EOS (LANCE) © <a href="https://www.mapbox.com/about/maps/" target="_blank">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright" target="_blank" >OpenStreetMap</a> | <a href="https://www.mapbox.com/map-feedback/" target="_blank">Improve this map</a>'});
+
+        var cfg = {
+          // radius should be small ONLY if scaleRadius is true (or small radius is intended)
+          "radius": 0.1,//The radius each datapoint will have (if not specified on the datapoint itself)
+          "maxOpacity": .8, 
+          // scales the radius based on map zoom
+          "scaleRadius": true, 
+          // if set to false the heatmap uses the global maximum for colorization
+          // if activated: uses the data maximum within the current map boundaries 
+          //   (there will always be a red spot with useLocalExtremas true)
+          "useLocalExtrema": true,
+          // which field name in your data represents the latitude - default "lat"
+          latField: 'latitude',
+          // which field name in your data represents the longitude - default "lng"
+          lngField: 'longitude',
+          // which field name in your data represents the data value - default "value"
+          valueField: 'brightness'
+        }
+
+        var heatmapLayer = new HeatmapOverlay(cfg);
+        var heatmapData
+        var map = new L.Map('map', {
+          center: new L.LatLng(-2, -60),
+          zoom: 5,
+          layers: [baseLayer, heatmapLayer]
+        });
+
+        var geojsonURL = "data/MODIS_C6_Global_24h.geojson"
+
+        $.getJSON(geojsonURL, function(response) {
+
+            var features = response.features
+            heatmapData = {max:350, min:300, data:[]};
+            for (var i = 0; i < features.length; i++) {
+              var latitude = features[i].geometry.coordinates[1];
+              var longitude = features[i].geometry.coordinates[0];
+              var bright = features[i].properties.brightness;
+              if (bright != null) 
+                heatmapData.data.push({'latitude':latitude, 'longitude': longitude, 'brightness': bright})
+            }
+            run(1.30)
+
+        });
+        function run(min){
+          var filteredHeatmapData= {max:350, min:300, data:[]};
+          var data = heatmapData.data;
+          for (var i = 0; i < heatmapData.data.length; i++) {
+            if (heatmapData.data[i].brightness > min) {
+              filteredHeatmapData.data.push({'latitude':heatmapData.data[i].latitude, 'longitude': heatmapData.data[i].longitude, 'brightness': heatmapData.data[i].brightness})
+            }
+          }
+
+          heatmapLayer.setData(filteredHeatmapData);
+          document.getElementById('numStations').innerHTML = "Número de focos : "+ filteredHeatmapData.data.length;
+
+        }
+        $( "#price" ).change(function() {
+          var newMin = $( "#price" ).val();
+          console.log(newMin)
+          run(newMin)
+        })
+        // make accessible for debugging
+        layer = heatmapLayer;
+      };
+    </script>
+  </body>
+</html>
